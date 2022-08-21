@@ -121,6 +121,13 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
             1, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        if(icon == 0) {
+            // Work around for issues where icon is invalid.
+            // https://github.com/rekabhq/background_locator/issues/268
+            val iconNameDefault = "ic_launcher"
+            icon = resources.getIdentifier(iconNameDefault, "mipmap", packageName)
+        }
+
         return NotificationCompat.Builder(this, Keys.CHANNEL_ID)
             .setContentTitle(notificationTitle)
             .setContentText(notificationMsg)
