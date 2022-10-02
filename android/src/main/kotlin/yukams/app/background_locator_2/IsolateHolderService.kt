@@ -1,16 +1,17 @@
 package yukams.app.background_locator_2
 
-import android.app.*
 import android.Manifest
+import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
-import android.content.pm.PackageManager
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.BinaryMessenger
@@ -20,8 +21,7 @@ import yukams.app.background_locator_2.pluggables.DisposePluggable
 import yukams.app.background_locator_2.pluggables.InitPluggable
 import yukams.app.background_locator_2.pluggables.Pluggable
 import yukams.app.background_locator_2.provider.*
-import java.util.HashMap
-import androidx.core.app.ActivityCompat
+import kotlin.system.exitProcess
 
 class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateListener, Service() {
     companion object {
@@ -81,6 +81,10 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     override fun onCreate() {
         super.onCreate()
         startLocatorService(this)
+        Thread.currentThread().setUncaughtExceptionHandler { thread, ex ->
+            delayedRestartAfterKilled();
+            exitProcess(2)
+        };
         startForeground(notificationId, getNotification())
     }
 
@@ -181,6 +185,11 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         }
 
         return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        delayedRestartAfterKilled()
     }
 
     private fun startHolderService(intent: Intent) {
@@ -290,6 +299,17 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     override fun onDestroy() {
         isServiceRunning = false
         super.onDestroy()
+    }
+
+    private fun delayedRestartAfterKilled() {
+        val service = PendingIntent.getService(
+                applicationContext,
+                1001,
+                Intent(applicationContext, IsolateHolderService::class.java),
+                PendingIntent.FLAG_ONE_SHOT)
+
+        val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, 2 * 60 * 60 * 1000, service)
     }
 
 
